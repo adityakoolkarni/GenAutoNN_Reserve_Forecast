@@ -10,7 +10,7 @@ import numpy as np
 
 
 
-def ISSM_filter(z, b, F, a, g, sigma, m_prior, S_prior):
+def ISSM(z, b, F, a, g, sigma, m_prior, S_prior):
     '''
     The documentation for this code can be found in :
     https://gluon.mxnet.io/chapter12_time-series/issm-scratch.html
@@ -72,4 +72,5 @@ def ISSM_filter(z, b, F, a, g, sigma, m_prior, S_prior):
         log_p_seq.append(log_p)
 
 
-    return mu_seq, S_seq, log_p_seq
+    return log_p_seq
+    #return mu_seq, S_seq, log_p_seq

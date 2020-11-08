@@ -14,8 +14,8 @@ def download_url(url, save_dir, file_name, chunk_size=128):
     assert isinstance(url,str) and isinstance(save_dir,str) and isinstance(file_name,str)
     assert os.path.exists(save_dir),'The save path given is %s does not exist'%(save_dir)
     save_path = os.path.join(save_dir,file_name)
-    #print("Saving File ",save_path)
-    #print("url fetching is ",url)
+    print("Saving File ",save_path)
+    print("url fetching is ",url)
     r = requests.get(url, stream=True) 
     with open(save_path, 'wb') as fd: 
         for chunk in r.iter_content(): 
@@ -35,28 +35,28 @@ def get_demand_forecast(url,save_dir,tf):
     tf.start_date = tf.start_date.dt.strftime('%Y%m%d')
     tf.end_date   = tf.end_date.dt.strftime('%Y%m%d')
     tf.end_date   = tf.end_date.apply(lambda i: str(int(i)-1))
-    #print(tf.head())
+    print(tf.head())
     for n in range(N):
         if n == 0:
-            #print("Url is ",url)
-            #print("Start Date ",tf.start_date[n])
-            #print("End Date ", tf.end_date[n])
+            print("Url is ",url)
+            print("Start Date ",tf.start_date[n])
+            print("End Date ", tf.end_date[n])
             download_url(url,save_dir,'zip_file_%s.zip'%(tf.start_date[n]))
-            #print()
-            #print()
+            print()
+            print()
         else:
             url_ = url.replace(tf.start_date[0],tf.start_date[n]).replace(tf.end_date[0],tf.end_date[n])
-            #print("Start Date ",tf.start_date[n])
-            #print("End Date ", tf.end_date[n])
-            #print("Url gen is ",url_)
+            print("Start Date ",tf.start_date[n])
+            print("End Date ", tf.end_date[n])
+            print("Url gen is ",url_)
             download_url(url_,save_dir,'zip_file_%s.zip'%(tf.start_date[n]))
-            #print()
-            #print()
+            print()
+            print()
 
         time.sleep(5) #Without this the website does not respond!
 
 if __name__ == '__main__':
-    months = 3
+    months = 5
     print("Getting the files from {} for next {} months".format('20160101',months))
 
     save_dir = '../data/' 
