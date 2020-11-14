@@ -45,6 +45,7 @@ class CaisoDataloader:
     
     def chunkify(self,series,seq_len):
         data = np.zeros((len(series) - seq_len,seq_len)) if series[0].values.to_numpy().ndim == 0  else  np.zeros((len(series) - seq_len,seq_len,3))
+        data = data.astype(np.float64)
         for d in range(len(series)-seq_len-1):
             data[d] = np.array([series[d:d+seq_len].tolist()],dtype=np.float64)
         return data  

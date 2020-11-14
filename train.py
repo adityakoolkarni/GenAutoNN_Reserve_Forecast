@@ -22,21 +22,13 @@ def train(model,configs,dataloader,ctx):
     #num_batches = len(ramp_z_train) // configs.batch_size
 
     for e in range(configs.num_epochs):
-        ############################
-        # Attenuate the learning rate by a factor of 2 every 100 epochs.
-        ############################
-        if ((e+1) % 100 == 0):
-            configs.learning_rate = configs.learning_rate / 2.0
-        #h = [nd.zeros(shape=(configs.num_hidden,configs.batch_size, configs.num_hidden), ctx=ctx)]*2
-        #c = nd.zeros(shape=(configs.num_hidden,configs.batch_size, configs.num_hidden), ctx=ctx)
-        #for i in range(num_batches):
         for cov_x,ramp_z in zip(dataloader[0],dataloader[1]):
             tic = time.time()
             with autograd.record():
-                print(cov_x,type(cov_x))
-                cov_x = nd.swapaxes(cov_x,0,1)
-                outputs,_ = model(cov_x) #batchsize x sequence length x input_size,h
-                print(outputs.shape)
+                cov_x = nd.swapaxes(cov_x,0,1).copyto(ctx)
+                parameters = model(cov_x) #batchsize x sequence length x input_size,h
+                print(parameters.shape)
+                #print(outputs.shape,h[0].shape,h[1].shape)
                 exit(0)
                 loss = -LL(ramp_z,get_ssm_params(outputs))
                 loss.backward()
@@ -62,12 +54,12 @@ if __name__ == '__main__':
     pprint(vars(configs))
 
     ## Defining the model ##
-    model = DeepStateSpaceModel(configs)
-    model.initialize()
+    model = DeepStateSpaceModel(configs,ctx)
+    model.initialize(ctx=ctx)
 
     ## Getting Data ##
     #train_dataloader = CaisoDataloader(configs)
     train_dataloader = CaisoDataloader(configs).make_sequence_data()
     train(model,configs,train_dataloader,ctx)
 
-    ##TODO 1) Define custom LSTM 2) Get Model parameters from LSTM
+    ##TODO Get Model parameters from LSTM
