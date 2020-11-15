@@ -1,21 +1,34 @@
-from mxnet import gluon, nd
-from mxnet.gluon import nn
-import numpy as np
+from gluonts.model.deepstate import DeepStateEstimator
+from gluonts.trainer import Trainer
 
-
-class DeepStateSpaceModel(nn.Block):
+class DeepStateSpaceModel:
     def __init__(self,configs,ctx):
-        super(DeepStateSpaceModel,self).__init__()
-        self.lstm = gluon.rnn.LSTM(configs.num_hidden,configs.num_rlayers,dtype=np.float64)
-        self.net = nn.Sequential()
-        self.net.add(gluon.rnn.LSTM(configs.num_hidden,configs.num_rlayers,dtype=np.float64),nn.Dense(configs.num_hidden*2+4,dtype=np.float64))
-        
-        #self.h0, self.c0 = 
-        self.h = [nd.zeros(shape=(configs.num_rlayers,configs.batch_size,configs.num_hidden),dtype=np.float64,ctx=ctx)]*2
 
-        ##TODO: Map output to model parameters
+        self.configs = configs
+        self.ctx = ctx
 
-    def forward(self,cov_x):
-        #output, self.h = self.lstm(cov_x,self.h)
-        output = self.net(cov_x)
-        return output
+    def get_estimator(self):
+        self.estimator = DeepStateEstimator(
+        freq = custom_ds_metadata['freq'],
+        prediction_length=custom_ds_metadata['prediction_length'],
+        cardinality=[2],
+        add_trend=True,
+        past_length=6*custom_ds_metadata['prediction_length'],
+        trainer=Trainer(ctx=ctx,
+                    epochs=5,
+                    learning_rate=1e-3,
+                    hybridize=False,
+                    num_batches_per_epoch=100
+                   )
+        )
+
+        return self.estimator
+
+    def save_model(self,predictor):
+        predictor.serialize(self.configs.model_save_path)
+
+
+    def load_model(self):
+        from gluonts.model.predictor import Predictor
+        predictor_deserialized = Predictor.deserialize(Path("/tmp/"))
+
