@@ -9,11 +9,13 @@ from pprint import pprint
 import os, sys, time
 from utils.issm_loss import ISSM as LL #Log-Likelihood
 from utils.parser import configparser
-from data.caiso_dataloader import CaisoDataloader
+from data.dataloader import dssmDataloader 
 from models.dssm import DeepStateSpaceModel
-#from utils.decode_params import get_ssm_params
+from gluonts.model.deepstate import DeepStateEstimator
+from gluonts.trainer import Trainer
+from gluonts.evaluation.backtest import make_evaluation_predictions
 
-def train(model,configs,dataloader,ctx):
+def train_old(model,configs,dataloader,ctx):
     moving_loss = 0.
     ############################
     # Data Loader and Optimizer
@@ -47,19 +49,56 @@ def train(model,configs,dataloader,ctx):
     
         print("Epoch %s. Loss: %s" % (e, moving_loss))
 
+def train(model,train_data,metadata,ctx):
+    '''
+        Get a probabilistic estimator and then train a DSSM model with data,
+        save the model
+
+
+    '''
+    estimator = model.get_estimator(metadata)
+
+    ## Get a predictor by training the estimator 
+    tic = time.time()
+    predictor = estimator.train(train_data)
+    print("**"*30)
+    print("Training completed sucessfully and took %s s",time.time()-toc )
+    model.save_model(predictor)
+    print("Saving models ")
+    print("**"*30)
+
+    forecast_it, ts_it = make_evaluation_predictions(
+        dataset=test_data,  # test dataset
+        predictor=predictor,  # predictor
+        num_samples=100,  # number of sample paths we want for evaluation
+        forecasts = list(forecast_it),
+        tss = list(ts_it))
+    forecast_entry = forecasts[0]
+
+    print(f"Number of sample paths: {forecast_entry.num_samples}")
+    print(f"Dimension of samples: {forecast_entry.samples.shape}")
+    print(f"Start date of the forecast window: {forecast_entry.start_date}")
+    print(f"Frequency of the time series: {forecast_entry.freq}")
+
+    
+    
+
 if __name__ == '__main__':
     mx.random.seed(1)
     ctx = mx.gpu(0)
     configs = configparser.parse_args()
     pprint(vars(configs))
 
-    ## Defining the model ##
-    model = DeepStateSpaceModel(configs,ctx)
-    model.initialize(ctx=ctx)
-
     ## Getting Data ##
-    #train_dataloader = CaisoDataloader(configs)
-    train_dataloader = CaisoDataloader(configs).make_sequence_data()
-    train(model,configs,train_dataloader,ctx)
+    #train_dataloader = CaisoDataloader(configs).make_sequence_data()
+    loader = dssmDataloader(configs)
+    train_data, test_data, metadata = loader.load_data()
 
-    ##TODO Get Model parameters from LSTM
+    ## Defining the model from scratch##
+    model = DeepStateSpaceModel(configs,ctx)
+    #model.initialize(ctx=ctx)
+
+    train(model,train_data,metadata,ctx)
+
+    #train(model,configs,train_dataloader,ctx)
+

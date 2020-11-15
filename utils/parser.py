@@ -2,7 +2,7 @@ import argparse
 
 configparser = argparse.ArgumentParser()
 
-configparser.add_argument('--n_epochs',
+configparser.add_argument('--num_epochs',
                           type=int,
                           default=1000,
                           help='Number of epochs.')
@@ -12,9 +12,9 @@ configparser.add_argument('--batch_size',
                           help='Batch size.')
 configparser.add_argument('--learning_rate',
                           type=float,
-                          default=2.,
+                          default=1e-3,
                           help='Learning rate.')
-configparser.add_argument('--n_hidden',
+configparser.add_argument('--num_hidden',
                           type=int,
                           default=12+7+24,
                           help='Dimension of latent state vector.')
@@ -28,7 +28,7 @@ configparser.add_argument('--n_years_train',
                           help='Number of years in training data.')
 configparser.add_argument('--data_path',
                           type=str,
-                          default='dataset_v01.csv',
+                          default='data/dataset_v01.csv',
                           help='The path to the .csv data file.')
 configparser.add_argument('--h5py_data_path',
                           type=str,

@@ -103,4 +103,4 @@ class dssmDataloader():
         train_tf = transformation(iter(train_ds), is_train=True)
         test_tf = transformation(iter(test_ds), is_train=False)
 
-        return train_tf, test_tf
+        return train_tf, test_tf, ds_metadata 

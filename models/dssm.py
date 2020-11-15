@@ -1,4 +1,5 @@
 from gluonts.model.deepstate import DeepStateEstimator
+from gluonts.model.predictor import Predictor
 from gluonts.trainer import Trainer
 
 class DeepStateSpaceModel:
@@ -7,28 +8,30 @@ class DeepStateSpaceModel:
         self.configs = configs
         self.ctx = ctx
 
-    def get_estimator(self):
+    def get_estimator(self,metadata):
+
         self.estimator = DeepStateEstimator(
-        freq = custom_ds_metadata['freq'],
-        prediction_length=custom_ds_metadata['prediction_length'],
-        cardinality=[2],
-        add_trend=True,
-        past_length=6*custom_ds_metadata['prediction_length'],
-        trainer=Trainer(ctx=ctx,
-                    epochs=5,
-                    learning_rate=1e-3,
-                    hybridize=False,
-                    num_batches_per_epoch=100
-                   )
-        )
+            freq = metadata['freq'],
+            prediction_length=metadata['pred_length'],
+            cardinality=[24,7,12],
+            add_trend=True,
+            past_length=metadata['context_length'],
+            num_cells=self.configs.num_hidden,
+            use_feat_static_cat=False,
+            use_feat_dynamic_real=False,
+            trainer=Trainer(ctx=self.ctx,
+                        epochs=self.configs.num_epochs,
+                        learning_rate=self.configs.learning_rate,
+                        hybridize=False,
+                        num_batches_per_epoch=metadata['num_steps']//self.configs.batch_size
+                       )
+            )
 
         return self.estimator
 
     def save_model(self,predictor):
         predictor.serialize(self.configs.model_save_path)
 
-
     def load_model(self):
-        from gluonts.model.predictor import Predictor
-        predictor_deserialized = Predictor.deserialize(Path("/tmp/"))
+        predictor_deserialized = Predictor.deserialize(self.configs.model_save_path)
 

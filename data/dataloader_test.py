@@ -3,8 +3,8 @@ import pandas as pd
 import mxnet as mx
 from mxnet import gluon
 
-from dataloader import dssmDataloader
 from utils.parser import configparser
+from data.dataloader import dssmDataloader
 
 if __name__ == '__main__':
     configs = configparser.parse_args()
