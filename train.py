@@ -70,9 +70,10 @@ def train(model,train_data,metadata,ctx):
     forecast_it, ts_it = make_evaluation_predictions(
         dataset=test_data,  # test dataset
         predictor=predictor,  # predictor
-        num_samples=100,  # number of sample paths we want for evaluation
-        forecasts = list(forecast_it),
-        tss = list(ts_it))
+        num_samples=100)  # number of sample paths we want for evaluation
+
+    forecasts = list(forecast_it)
+    tss = list(ts_it)
     forecast_entry = forecasts[0]
 
     print(f"Number of sample paths: {forecast_entry.num_samples}")
@@ -86,6 +87,7 @@ def train(model,train_data,metadata,ctx):
 if __name__ == '__main__':
     mx.random.seed(1)
     ctx = mx.gpu(0)
+    #ctx = mx.cpu()
     configs = configparser.parse_args()
     pprint(vars(configs))
 

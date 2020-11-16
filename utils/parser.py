@@ -4,7 +4,7 @@ configparser = argparse.ArgumentParser()
 
 configparser.add_argument('--num_epochs',
                           type=int,
-                          default=1000,
+                          default=100,
                           help='Number of epochs.')
 configparser.add_argument('--batch_size',
                           type=int,
