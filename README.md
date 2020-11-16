@@ -1,5 +1,5 @@
 # GenAutoNN_Reserve_Forecast
-Predicting the reserve requirement (Total Demand - (Solar Supply + Wind Supply))MWh for a energy supply system enables us to have integration of renewable energy sources. By reducing predictive a more accurate deficit of energy we can rely more on renewables. We aim to explore and experiment with model based on deep state space models by Syama Sundar Rangapuram et al. 
+Predicting the reserve requirement (Total Demand - (Solar Supply + Wind Supply))MWh; for a energy supply system enables us to have integration of renewable energy sources. Accurately predicting the deficit could enable us rely more on renewables. We aim to explore and experiment with model based on deep state space models by Syama Sundar Rangapuram et al. 
 
 ## Requirements
 We use [GluonTS](https://ts.gluon.ai/) based on MXNet software package to implement our baseline work. To ensure you have the correct version use
