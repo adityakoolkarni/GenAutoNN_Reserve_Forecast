@@ -35,4 +35,5 @@ class DeepStateSpaceModel:
 
     def load_model(self):
         predictor_deserialized = Predictor.deserialize(self.configs.model_save_path)
+        return predictor_deserialized
 

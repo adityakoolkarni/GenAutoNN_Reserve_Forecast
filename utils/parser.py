@@ -28,7 +28,7 @@ configparser.add_argument('--n_years_train',
                           help='Number of years in training data.')
 configparser.add_argument('--data_path',
                           type=str,
-                          default='data/dataset_v01.csv',
+                          default='../data/dataset_v01.csv',
                           help='The path to the .csv data file.')
 configparser.add_argument('--h5py_data_path',
                           type=str,

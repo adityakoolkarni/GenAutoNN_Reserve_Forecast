@@ -1,5 +1,5 @@
 """
-Dataloader class to load CAISO and EIA data into GluonTS model
+Dataloader class to load EIA data into GluonTS model
 for training and predicting CA net load ramp.
 """
 
@@ -22,57 +22,28 @@ class dssmDataloader():
 
     def extract_data(self):
         """Extracts target and feature series from df."""
-        caiso_load_target = np.asarray(self.df['caiso_load_ramp'])
-        caiso_solar_target = np.asarray(self.df['caiso_solar_ramp'])
-        caiso_wind_target = np.asarray(self.df['caiso_wind_ramp'])
         eia_load_target = np.asarray(self.df['eia_load_ramp'])
         eia_solar_target = np.asarray(self.df['eia_solar_ramp'])
         eia_wind_target = np.asarray(self.df['eia_wind_ramp'])
         target_names = [
-            'CAISO Load Ramp',
-            'EIA Load Ramp',
-            'CAISO Solar Ramp',
-            'EIA Solar Ramp',
-            'CAISO Wind Ramp',
-            'EIA Wind Ramp'
+            'EIALoadRamp',
+            'EIASolarRamp',
+            'EIAWindRamp'
             ]
         targets = np.stack([
-            caiso_load_target,
             eia_load_target,
-            caiso_solar_target,
             eia_solar_target,
-            caiso_wind_target,
             eia_wind_target
             ], axis=0)
-        feature_labels = ['cat_hour', 'cat_day', 'cat_month', 'cat_year']
-        feature_cols = []
-        for label in feature_labels:
-            feature_cols.append(
-                np.asarray([int(i) for i in self.df[label]])
-                )
-        features = np.asarray(feature_cols)
-
+        #feature_labels = ['cat_hour', 'cat_day', 'cat_month', 'cat_year']
+        #feature_cols = []
+        #for label in feature_labels:
+        #    feature_cols.append(
+        #        np.asarray([int(i) for i in self.df[label]])
+        #        )
+        #features = np.asarray(feature_cols)
+        return targets, target_names
         return targets, features, target_names
-
-    def make_transformation(self, freq, context_len, pred_len):
-        """Creates a chain obj that can transform the dataset. Note that
-        currently this isn't used as the estimator.train method from GluonTS
-        performs its own transform on the data.
-        """
-        return Chain(
-            [
-                InstanceSplitter(
-                    target_field=FieldName.TARGET,
-                    is_pad_field=FieldName.IS_PAD,
-                    start_field=FieldName.START,
-                    forecast_start_field=FieldName.FORECAST_START,
-                    train_sampler=ExpectedNumInstanceSampler(num_instances=1),
-                    past_length=context_len,
-                    future_length=pred_len,
-                    time_series_fields=[FieldName.FEAT_DYNAMIC_CAT]
-                )
-            ]
-        )
 
     def build_ds_iterables(self, markers, targets,
                            dynamic_features, static_features,
@@ -89,20 +60,14 @@ class dssmDataloader():
                         {
                             FieldName.TARGET: target,
                             FieldName.START: start,
-                            FieldName.FEAT_DYNAMIC_CAT: np.squeeze(fdc),
                             FieldName.FEAT_STATIC_CAT: [fsc]
                         }
-                        for (target, start, fdc, fsc) in zip(
+                        for (target, start, fsc) in zip(
                             targets[
                                         :,
                                         markers[i]:markers[i+1]-clip
                                     ],
                             ds_metadata['start'],
-                            dynamic_features[
-                                                :,
-                                                :,
-                                                markers[i]:markers[i+1]-clip
-                                            ],
                             static_features
                             )
                     ],
@@ -130,7 +95,7 @@ class dssmDataloader():
                                                init_dynamic_features],
                                               axis=0)
         # 0s for load ramps, 1s for solar ramps, and 2s for wind ramps
-        static_features = [0, 0, 1, 1, 2, 2]
+        static_features = [0, 1, 2]
         dates = np.asarray(self.df['dt'])
 
         ds_metadata = {
