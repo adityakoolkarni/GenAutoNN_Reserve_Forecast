@@ -22,21 +22,13 @@ class dssmDataloader():
 
     def extract_data(self):
         """Extracts target and feature series from df."""
-        if self.configs.six_ramps == True:
+        if self.configs.six_ramps is True:
             caiso_load_target = np.asarray(self.df['caiso_load_ramp'])
             caiso_solar_target = np.asarray(self.df['caiso_solar_ramp'])
             caiso_wind_target = np.asarray(self.df['caiso_wind_ramp'])
             eia_load_target = np.asarray(self.df['eia_load_ramp'])
             eia_solar_target = np.asarray(self.df['eia_solar_ramp'])
             eia_wind_target = np.asarray(self.df['eia_wind_ramp'])
-            target_names = [
-                'CAISO_Load_Ramp',
-                'EIA_Load_Ramp',
-                'CAISO_Solar_Ramp',
-                'EIA_Solar_Ramp',
-                'CAISO_Wind_Ramp',
-                'EIA_Wind_Ramp'
-                ]
             targets = np.stack([
                 caiso_load_target,
                 eia_load_target,
@@ -45,12 +37,22 @@ class dssmDataloader():
                 caiso_wind_target,
                 eia_wind_target
                 ], axis=0)
+            target_names = [
+                'CAISO_Load_Ramp',
+                'EIA_Load_Ramp',
+                'CAISO_Solar_Ramp',
+                'EIA_Solar_Ramp',
+                'CAISO_Wind_Ramp',
+                'EIA_Wind_Ramp'
+                ]
         else:
-            targets = np.asarray(self.df['eia_ramp']).reshape(1,-1)
+            targets = np.asarray(self.df['eia_ramp']).reshape(1, -1)
             target_names = ['eia_ramp']
 
+        caiso_net_load_ramp = np.asarray(self.df["caiso_ramp"])
+        eia_net_load_ramp = np.asarray(self.df["eia_ramp"])
 
-        return targets, target_names
+        return targets, target_names, caiso_net_load_ramp, eia_net_load_ramp
 
     def build_ds_iterables(self, markers, targets,
                            static_features,
@@ -96,7 +98,12 @@ class dssmDataloader():
         """
         assert len(splits) == 2, 'Incorrect train/validation/test split.'
 
-        targets, target_names = self.extract_data()
+        (
+            targets,
+            target_names,
+            caiso_net_load_ramp,
+            eia_net_load_ramp
+        ) = self.extract_data()
         # 0s for load ramps, 1s for solar ramps, and 2s for wind ramps
         if self.configs.six_ramps:
             static_features = [0, 0, 1, 1, 2, 2]
@@ -136,4 +143,11 @@ class dssmDataloader():
                                                 ds_metadatas,
                                                 clip_flag=False)
 
-        return clipped_datasets, full_datasets, ds_metadatas, target_names
+        return (
+            clipped_datasets,
+            full_datasets,
+            ds_metadatas,
+            target_names,
+            caiso_net_load_ramp,
+            eia_net_load_ramp
+            )
