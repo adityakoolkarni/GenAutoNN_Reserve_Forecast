@@ -22,7 +22,7 @@ We found two main sources for the energy requirements and supply data for Califo
 ### Training the Model 
 The model can be trained either by running the code in train_dssm.ipynb or train.py module. To run the code from command line use 
 ```
-python train.py num_epochs 100 
+python train.py --num_epochs 100 --six_ramps False --batch_size 1000
 ```
 The model parameters will be saved in saved_model
 
