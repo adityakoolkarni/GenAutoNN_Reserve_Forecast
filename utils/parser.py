@@ -22,18 +22,22 @@ configparser.add_argument('--num_layers',
                           type=int,
                           default=1,
                           help='Number of recurrent layers.')
-configparser.add_argument('--n_years_train',
-                          type=int,
-                          default=2,
-                          help='Number of years in training data.')
 configparser.add_argument('--data_path',
                           type=str,
                           default='data/dataset_v03.csv',
                           help='The path to the .csv data file.')
 configparser.add_argument('--six_ramps',
-                          type=bool,
-                          default=True,
+                          type=int,
+                          default=1,
                           help='Predict six component ramps vs one ramp.')
+configparser.add_argument('--run_eval_only',
+                          type=bool,
+                          default=False,
+                          help='Runs only evaluation metrics.')
+configparser.add_argument('--simulation_num',
+                          type=int,
+                          default=1,
+                          help='This is model that will be used to run evaluations on')
 configparser.add_argument('--freq',
                           type=str,
                           default='1H',

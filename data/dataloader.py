@@ -45,12 +45,13 @@ class dssmDataloader():
                 'CAISO_Wind_Ramp',
                 'EIA_Wind_Ramp'
                 ]
+            caiso_net_load_ramp = np.asarray(self.df["caiso_ramp"])
+            eia_net_load_ramp = np.asarray(self.df["eia_ramp"])
+
         else:
             targets = np.asarray(self.df['eia_ramp']).reshape(1, -1)
             target_names = ['eia_ramp']
-
-        caiso_net_load_ramp = np.asarray(self.df["caiso_ramp"])
-        eia_net_load_ramp = np.asarray(self.df["eia_ramp"])
+            caiso_net_load_ramp, eia_net_load_ramp = None, None
 
         return targets, target_names, caiso_net_load_ramp, eia_net_load_ramp
 

@@ -44,8 +44,6 @@ def plot_forecasts(forecast, agg_metrics, series, name, configs):
     legend += [f'{k} prediction interval' for k in prediction_intervals][::-1]
 
     plot_path = os.path.join(configs.model_save_path, 'plots')
-    if not os.path.isdir(plot_path):
-        os.mkdir(plot_path)
 
     # first plot
     fig, ax = plt.subplots(1, 1, figsize=(10, 7))
@@ -57,13 +55,13 @@ def plot_forecasts(forecast, agg_metrics, series, name, configs):
     plt.savefig(os.path.join(plot_path, name + ".png"))
 
     # second plot
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-    ax.plot(
-        series.index[-configs.pred_len:],
-        agg_metrics[name + '_error_perc'] * 100
-        )
-    ax.set_title(f"Percentage Error Plot for {name}")
-    plt.savefig(os.path.join(plot_path, name + '_error_perc.png'))
+    #fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+    #ax.plot(
+    #    series.index[-configs.pred_len:],
+    #    agg_metrics[name + '_error_perc'] * 100
+    #    )
+    #ax.set_title(f"Percentage Error Plot for {name}")
+    #plt.savefig(os.path.join(plot_path, name + '_error_perc.png'))
 
 
 def log_eval(configs, agg_metrics):
@@ -119,9 +117,28 @@ def combine_forecast_components(forecasts_ls, series_ls):
 
     return combined_forecast_samples, labels
 
+def error_percentage(predicted,true,err_type,configs):
+    '''
+    Computes error percentage and plots the same 
+    '''
+    err_perc = (np.mean(predicted, axis=0) -
+        true.reshape(-1)) * 100 / true.reshape(-1)
+    plot_path = os.path.join(configs.model_save_path, 'plots')
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+    ax.plot(
+        np.arange(configs.pred_len),
+        err_perc
+        )
+    plot_name = err_type.split('_')[0].upper() + '_ramp' #CAISO / EIA
+    ax.set_title(f"Percentage Error Plot for {plot_name}")
+    ax.set_xlabel('Prediction at every Hour')
+    ax.set_ylabel('Percentage Error')
+    plt.savefig(os.path.join(plot_path, plot_name + '_error_perc.png'))
+
+    return err_perc 
 
 def eval(model, validation_ds, metadata, configs, names,
-         caiso_net_load_ramp, eia_net_load_ramp):
+         caiso_net_load_ramp=None, eia_net_load_ramp=None):
     predictor = model.load_model()
 
     forecasts_it, series_it = make_evaluation_predictions(
@@ -142,10 +159,7 @@ def eval(model, validation_ds, metadata, configs, names,
         num_series=len(validation_ds)
         )
 
-    combined_forecast_samples, labels = combine_forecast_components(
-        forecasts_ls,
-        series_ls
-        )
+
 
     for i in range(len(forecasts_ls)):
         forecast = forecasts_ls[i]
@@ -159,29 +173,36 @@ def eval(model, validation_ds, metadata, configs, names,
         print(f"Frequency of the time series: {forecast.freq}")
         print("*-"*40)
         series = series_ls[i]
-        agg_metrics[name + '_error_perc'] = (
-            (np.mean(forecast.samples, axis=0) -
-                series[-configs.pred_len:].to_numpy().reshape(-1)) /
-            series[-configs.pred_len:].to_numpy().reshape(-1))
+        err_type = name + '_error_perc'
+        agg_metrics[err_type] = error_percentage(predicted=forecast.samples,
+                                                            true=series[-configs.pred_len:].to_numpy(),
+                                                            err_type=err_type,
+                                                            configs=configs)
         plot_forecasts(forecast, agg_metrics, series, name, configs)
 
     # now do a similar calc for the combined forecasts
-    # not yet logging this!!
-    for i in range(len(combined_forecast_samples)):
-        cur_samples = combined_forecast_samples[i]
-        cur_label = labels[i]
-        if "caiso" in cur_label:
-            cur_target = caiso_net_load_ramp
-        else:
-            cur_target = eia_net_load_ramp
-        cur_percent_error = (
-            (cur_samples -
-             cur_target[-configs.pred_len:].reshape(-1)) /
-            cur_target[-configs.pred_len:].reshape(-1))
-        print(f"{cur_label} percent error: {cur_percent_error}")
+    # log these values - I have logged the error percentages - Aditya
+    if configs.six_ramps:
+        combined_forecast_samples, labels = combine_forecast_components(
+            forecasts_ls,
+            series_ls
+            )
+        for i in range(len(combined_forecast_samples)):
+            cur_samples = combined_forecast_samples[i]
+            cur_label = labels[i]
+            if "caiso" in cur_label:
+                cur_target = caiso_net_load_ramp
+                err_type = 'caiso_error_perc'
+            else:
+                cur_target = eia_net_load_ramp
+                err_type = 'eia_error_perc'
+            agg_metrics[err_type] = error_percentage(predicted=cur_samples,
+                                                    true=cur_target[-configs.pred_len:].reshape(-1),
+                                                    err_type=err_type,
+                                                    configs=configs)
+            print(f"{cur_label} percent error: {agg_metrics[err_type]}")
 
     print('\nTarget series forecast plots saved.')
-
     log_eval(configs, agg_metrics)
     print('\nConfiguration and results logged.')
 
@@ -190,12 +211,21 @@ if __name__ == '__main__':
     mx.random.seed(1)
     ctx = mx.cpu()
     configs = configparser.parse_args()
+    pprint(vars(configs))
     sim_number = len(os.listdir('./saved_models'))
+    if configs.run_eval_only:
+        if 'simulation_num_' + str(configs.simulation_num) not in os.listdir('./saved_models'):
+            raise ValueError('This simulation has not been trained')
+        sim_number = configs.simulation_num
     configs.model_save_path += f'/simulation_num_{sim_number}'
     configs.model_save_path = Path(configs.model_save_path)
     if not os.path.isdir(configs.model_save_path):
         os.mkdir(configs.model_save_path)
-    pprint(vars(configs))
+
+    plot_path = os.path.join(configs.model_save_path, 'plots')
+    if not os.path.isdir(plot_path):
+        os.mkdir(plot_path)
+
 
     loader = dssmDataloader(configs)
     # ratios of train and validation data, with the remainder as the test set
@@ -209,8 +239,13 @@ if __name__ == '__main__':
         eia_net_load_ramp
     ) = loader.load_data(splits)
 
+
+    print('*-'*40)
+    print('*-'*40)
+    print("Data Loading Complete")
     # make this very clear...
     train_ds = clipped_datasets[0]
+    train_ds_full = full_datasets[0]
     train_metadata = metadatas[0]
     validation_ds = full_datasets[1]
     validation_metadata = metadatas[1]
@@ -231,9 +266,30 @@ if __name__ == '__main__':
     print(json.dumps(validation_metadata, indent=4))
     print('\n')
 
+    print('*-'*40)
+    print('*-'*40)
+    print("Data Loading Complete")
     configs.train_len = train_ds_entry['target'].shape[0]
     model = DeepStateSpaceModel(configs, ctx)
 
-    train(model, train_ds, train_metadata)
-    eval(model, validation_ds, validation_metadata, configs, target_names,
+    if configs.run_eval_only:
+        print('*-'*40)
+        print('*-'*40)
+        print("Running evaluation only")
+        eval(model, train_ds_full, train_metadata, configs, target_names,
+             caiso_net_load_ramp, eia_net_load_ramp)
+        print('*-'*40)
+        print('*-'*40)
+
+    else:
+        print('*-'*40)
+        print('*-'*40)
+        print("Running training")
+        train(model, train_ds, train_metadata)
+        print('*-'*40)
+
+        print("Running evaluation only")
+        eval(model, train_ds_full, train_metadata, configs, target_names,
          caiso_net_load_ramp, eia_net_load_ramp)
+        print('*-'*40)
+        print('*-'*40)
