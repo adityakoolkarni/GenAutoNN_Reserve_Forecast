@@ -32,8 +32,8 @@ configparser.add_argument('--data_path',
                           help='The path to the .csv data file.')
 configparser.add_argument('--six_ramps',
                           type=bool,
-                          default=False,
-                          help='Predict six ramps vs one ramp')
+                          default=True,
+                          help='Predict six component ramps vs one ramp.')
 configparser.add_argument('--freq',
                           type=str,
                           default='1H',
