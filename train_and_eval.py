@@ -28,6 +28,13 @@ def plot_forecasts(forecast, series, name, context_len, pred_len):
     plt.savefig('plots/' + name + '.png')
 
 
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+    mean_forecast = np.mean(forecast,axis=0)
+    hourly_error = mean_forecast - series[-pred_len:]
+    ax.plot(np.arange(24),hourly_error)
+    ax.set_title(name+'_hourly_error')
+
+
 def log_eval(configs, agg_metrics):
     if not os.path.exists('logs'):
         os.makedirs('logs')
@@ -105,9 +112,12 @@ if __name__ == '__main__':
     ) = loader.load_data(splits)
 
     # make this very clear...
-    train_ds = clipped_datasets[0]
-    validation_ds = full_datasets[1]
-    test_ds = full_datasets[2]
+    train_ds_clipped = clipped_datasets[0]
+    train_ds_full = full_datasets[0]
+    validation_ds_clipped = clipped_datasets[1]
+    validation_ds_full = full_datasets[1]
+    test_ds_clipped = clipped_datasets[2]
+    test_ds_full = full_datasets[2]
 
     # take a look at what an entry of each ListDataset object looks like
     train_ds_entry = next(iter(train_ds))
@@ -121,6 +131,21 @@ if __name__ == '__main__':
 
     model = DeepStateSpaceModel(configs, ctx)
 
-    train(model, train_ds, metadata)
+    #### Step 1: Train the model on clipped dataset ####
+    train(model, train_ds_clipped, metadata)
+    #### Step 2: Evaluate the model on full dataset ####
+    eval(model,train_ds_full,metadata,configs,target_names) 
 
-    eval(model, validation_ds, metadata, configs, target_names)
+    ###### Use these metrics to see tune the hyperparameters ######
+    #### Step 3: Train the model on clipped dataset ####
+    train(model, validation_ds_clipped, metadata)
+    #### Step 4: Evaluate the model on full dataset ####
+    eval(model,validation_ds_full,metadata,configs,target_names) 
+
+    ###### Use these metrics to see generalizability of the hyperparameters ######
+    #### Step 3: Train the model on clipped dataset ####
+    train(model, test_ds_clipped, metadata)
+    #### Step 4: Evaluate the model on full dataset ####
+    eval(model,test_ds_full,metadata,configs,target_names) 
+
+

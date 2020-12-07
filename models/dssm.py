@@ -13,18 +13,19 @@ class DeepStateSpaceModel:
         self.estimator = DeepStateEstimator(
             freq = metadata['freq'],
             prediction_length=metadata['pred_length'],
-            cardinality=[24,7,12],
+            cardinality=[3], ##one per sequence type 1)demand ramp 2) solar ramp 3) wind ramp
             add_trend=True,
             past_length=metadata['context_length'],
+            num_layers = self.configs.num_layers
             num_cells=self.configs.num_hidden,
-            use_feat_static_cat=False,
-            use_feat_dynamic_real=False,
+            #use_feat_static_cat=False,
+            #use_feat_dynamic_real=False,
             trainer=Trainer(ctx=self.ctx,
                         epochs=self.configs.num_epochs,
                         learning_rate=self.configs.learning_rate,
                         hybridize=False,
-                        batch_size=self.configs.batch_size,
-                        num_batches_per_epoch=metadata['num_steps']//self.configs.batch_size
+                        batch_size=self.configs.batch_size
+                        #num_batches_per_epoch=metadata['num_steps']//self.configs.batch_size
                        )
             )
 

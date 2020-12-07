@@ -89,7 +89,7 @@ class dssmDataloader():
                         {
                             FieldName.TARGET: target,
                             FieldName.START: start,
-                            FieldName.FEAT_DYNAMIC_CAT: np.squeeze(fdc),
+                            #FieldName.FEAT_DYNAMIC_CAT: np.squeeze(fdc),
                             FieldName.FEAT_STATIC_CAT: [fsc]
                         }
                         for (target, start, fdc, fsc) in zip(
@@ -98,11 +98,11 @@ class dssmDataloader():
                                         markers[i]:markers[i+1]-clip
                                     ],
                             ds_metadata['start'],
-                            dynamic_features[
-                                                :,
-                                                :,
-                                                markers[i]:markers[i+1]-clip
-                                            ],
+                            #dynamic_features[
+                            #                    :,
+                            #                    :,
+                            #                    markers[i]:markers[i+1]-clip
+                            #                ],
                             static_features
                             )
                     ],
@@ -136,7 +136,6 @@ class dssmDataloader():
         ds_metadata = {
             'num_series': targets.shape[0],
             'num_steps': targets.shape[1],
-            'start': [dates[0] for _ in range(targets.shape[0])]
         }
 
         assert len(splits) == 2, 'Incorrect train/validation/test split.'
@@ -151,6 +150,10 @@ class dssmDataloader():
             ds_metadata['num_steps']
             ]
 
+        ### Take start data according to the split of time stamp
+        ds_metadata['start'] = [dates[markers[0]],
+                                            dates[markers[1]],
+                                            dates[markers[2]]]
         clipped_datasets = self.build_ds_iterables(markers, targets,
                                                    dynamic_features,
                                                    static_features,
