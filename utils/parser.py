@@ -34,6 +34,10 @@ configparser.add_argument('--run_eval_only',
                           type=bool,
                           default=False,
                           help='Runs only evaluation metrics.')
+configparser.add_argument('--use_gpu',
+                          type=bool,
+                          default=True,
+                          help='Use GPU if available.')
 configparser.add_argument('--simulation_num',
                           type=int,
                           default=1,

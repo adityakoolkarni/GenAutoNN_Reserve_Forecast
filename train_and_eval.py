@@ -209,8 +209,8 @@ def eval(model, validation_ds, metadata, configs, names,
 
 if __name__ == '__main__':
     mx.random.seed(1)
-    ctx = mx.cpu()
     configs = configparser.parse_args()
+    ctx = mx.gpu() if configs.use_gpu else mx.cpu()
     pprint(vars(configs))
     sim_number = len(os.listdir('./saved_models'))
     if configs.run_eval_only:

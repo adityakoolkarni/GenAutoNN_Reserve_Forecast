@@ -15,7 +15,8 @@ class DeepStateSpaceModel:
         self.estimator = DeepStateEstimator(
             freq = self.configs.freq,
             prediction_length=self.configs.pred_len,
-            cardinality=[3 if self.configs.six_ramps else 2], ##one per sequence type 1)demand ramp 2) solar ramp 3) wind ramp
+            cardinality=[3 if self.configs.six_ramps else 1], ##one per sequence type 1)demand ramp 2) solar ramp 3) wind ramp
+            use_feat_static_cat= True if self.configs.six_ramps else False,
             add_trend=True,
             past_length=self.configs.context_len,
             num_layers = self.configs.num_layers,
@@ -35,6 +36,6 @@ class DeepStateSpaceModel:
         predictor.serialize(Path(self.configs.model_save_path))
 
     def load_model(self):
-        predictor_deserialized = Predictor.deserialize(Path(self.configs.model_save_path))
+        predictor_deserialized = Predictor.deserialize(Path(self.configs.model_save_path),ctx=mx.cpu())
         return predictor_deserialized
 
