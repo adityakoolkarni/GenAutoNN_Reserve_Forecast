@@ -2,6 +2,7 @@ from gluonts.model.deepstate import DeepStateEstimator
 from gluonts.model.predictor import Predictor
 from gluonts.trainer import Trainer
 from pathlib import Path
+import mxnet as mx
 
 class DeepStateSpaceModel:
     def __init__(self,configs,ctx):
@@ -23,7 +24,7 @@ class DeepStateSpaceModel:
                         epochs=self.configs.num_epochs,
                         learning_rate=self.configs.learning_rate,
                         hybridize=False,
-                        #num_batches_per_epoch = self.configs.train_len // self.configs.batch_size,
+                        num_batches_per_epoch = self.configs.train_len // self.configs.batch_size,
                         batch_size=self.configs.batch_size
                        )
             )
