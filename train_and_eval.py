@@ -211,7 +211,6 @@ if __name__ == '__main__':
     mx.random.seed(1)
     configs = configparser.parse_args()
     ctx = mx.gpu() if configs.use_gpu else mx.cpu()
-    pprint(vars(configs))
     sim_number = len(os.listdir('./saved_models'))
     if configs.run_eval_only:
         if 'simulation_num_' + str(configs.simulation_num) not in os.listdir('./saved_models'):
@@ -270,6 +269,7 @@ if __name__ == '__main__':
     print('*-'*40)
     print("Data Loading Complete")
     configs.train_len = train_ds_entry['target'].shape[0]
+    pprint(vars(configs))
     model = DeepStateSpaceModel(configs, ctx)
 
     if configs.run_eval_only:

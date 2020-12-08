@@ -3,6 +3,7 @@ from gluonts.model.predictor import Predictor
 from gluonts.trainer import Trainer
 from pathlib import Path
 import mxnet as mx
+from gluonts.model.deepstate.issm import ISSM, CompositeISSM,SeasonalityISSM
 
 class DeepStateSpaceModel:
     def __init__(self,configs,ctx):
@@ -16,6 +17,7 @@ class DeepStateSpaceModel:
             freq = self.configs.freq,
             prediction_length=self.configs.pred_len,
             cardinality=[3 if self.configs.six_ramps else 1], ##one per sequence type 1)demand ramp 2) solar ramp 3) wind ramp
+            issm = OurSeasonality.get_seasonality(self.configs),
             use_feat_static_cat= True if self.configs.six_ramps else False,
             add_trend=True,
             past_length=self.configs.context_len,
@@ -38,4 +40,29 @@ class DeepStateSpaceModel:
     def load_model(self):
         predictor_deserialized = Predictor.deserialize(Path(self.configs.model_save_path),ctx=mx.cpu())
         return predictor_deserialized
+
+class OurSeasonality(CompositeISSM):
+    @classmethod
+    def get_seasonality(cls,configs):
+        if configs.seasonality == "M":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=12)  # month-of-year seasonality
+            ]
+        elif configs.seasonality == "W":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=53)  # week-of-year seasonality
+            ]
+        elif configs.seasonality == "D":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=7)
+            ]  # day-of-week seasonality
+        elif configs.seasonality == "HD":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=24),  # hour-of-day seasonality
+                SeasonalityISSM(num_seasons=7),  # day-of-week seasonality
+            ]
+        else:
+            RuntimeError(f"Unsupported frequency {configs.seasonality}")
+
+        return cls(seasonal_issms=seasonal_issms, add_trend=True)
 

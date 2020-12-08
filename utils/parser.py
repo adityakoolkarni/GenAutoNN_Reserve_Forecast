@@ -4,7 +4,7 @@ configparser = argparse.ArgumentParser()
 
 configparser.add_argument('--num_epochs',
                           type=int,
-                          default=1,
+                          default=30,
                           help='Number of epochs.')
 configparser.add_argument('--batch_size',
                           type=int,
@@ -18,6 +18,10 @@ configparser.add_argument('--num_hidden',
                           type=int,
                           default=12+7+24,
                           help='Dimension of latent state vector.')
+configparser.add_argument('--seasonality',
+                          type=str,
+                          default='HD',
+                          help='Seasonality to model HD- Hour, Day; D - Day, M- Month, W- Week')
 configparser.add_argument('--num_layers',
                           type=int,
                           default=1,
