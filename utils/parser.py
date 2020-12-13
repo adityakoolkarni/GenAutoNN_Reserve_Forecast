@@ -54,6 +54,10 @@ configparser.add_argument('--model_save_path',
                           type=str,
                           default='saved_models/',
                           help='Save model here in this path.')
+configparser.add_argument('--simulation_folder_name',
+                          type=str,
+                          default='junk',
+                          help='load model from here.')
 configparser.add_argument('--context_len',
                           type=int,
                           default=24,

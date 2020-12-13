@@ -38,6 +38,10 @@ class DeepStateSpaceModel:
         predictor.serialize(Path(self.configs.model_save_path))
 
     def load_model(self):
+        print("Model path " ,Path(self.configs.model_save_path))
+        import os
+        print(os.listdir(Path(self.configs.model_save_path)))
+
         predictor_deserialized = Predictor.deserialize(Path(self.configs.model_save_path),ctx=mx.cpu())
         return predictor_deserialized
 
@@ -56,10 +60,24 @@ class OurSeasonality(CompositeISSM):
             seasonal_issms = [
                 SeasonalityISSM(num_seasons=7)
             ]  # day-of-week seasonality
+        elif configs.seasonality == "H":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=24)
+            ]  # day-of-week seasonality
         elif configs.seasonality == "HD":
             seasonal_issms = [
                 SeasonalityISSM(num_seasons=24),  # hour-of-day seasonality
                 SeasonalityISSM(num_seasons=7),  # day-of-week seasonality
+            ]
+        elif configs.seasonality == "HM":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=24),  # hour-of-day seasonality
+                SeasonalityISSM(num_seasons=12),  # month-of-year seasonality
+            ]
+        elif configs.seasonality == "HW":
+            seasonal_issms = [
+                SeasonalityISSM(num_seasons=24),  # hour-of-day seasonality
+                SeasonalityISSM(num_seasons=53),  # week-of-year seasonality
             ]
         else:
             RuntimeError(f"Unsupported frequency {configs.seasonality}")

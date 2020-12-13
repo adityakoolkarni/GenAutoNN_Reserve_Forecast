@@ -3,6 +3,7 @@ import time
 import json
 import datetime
 import mxnet as mx
+import pandas as pd
 from pprint import pprint
 import matplotlib.pyplot as plt
 from gluonts.evaluation.backtest import make_evaluation_predictions
@@ -14,6 +15,9 @@ from utils.parser import configparser
 from data.dataloader import dssmDataloader
 from models.dssm import DeepStateSpaceModel
 from itertools import tee
+import shutil
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 def train(model, train_ds, metadata):
@@ -38,7 +42,7 @@ def train(model, train_ds, metadata):
 
 def plot_forecasts(forecast, agg_metrics, series, name, configs):
     context_len, pred_len = configs.context_len, configs.pred_len
-    plot_length = context_len + pred_len
+    plot_length =  pred_len +context_len
     prediction_intervals = (50.0, 90.0)
     legend = ['observations', 'median prediction']
     legend += [f'{k} prediction interval' for k in prediction_intervals][::-1]
@@ -46,12 +50,12 @@ def plot_forecasts(forecast, agg_metrics, series, name, configs):
     plot_path = os.path.join(configs.model_save_path, 'plots')
 
     # first plot
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
     series[-plot_length:].plot(ax=ax)  # plot the time series
     forecast.plot(prediction_intervals=prediction_intervals, color='g')
     plt.grid(which="both")
     plt.legend(legend, loc="upper left")
-    ax.set_title(name)
+    ax.set_title(name.replace('_', ' ').title())
     plt.savefig(os.path.join(plot_path, name + ".png"))
 
     # second plot
@@ -117,14 +121,18 @@ def combine_forecast_components(forecasts_ls, series_ls):
 
     return combined_forecast_samples, labels
 
-def error_percentage(predicted,true,err_type,configs):
+def error_percentage(predicted,true,err_type,configs,take_mean=True):
     '''
     Computes error percentage and plots the same 
     '''
-    err_perc = (np.mean(predicted, axis=0) -
-        true.reshape(-1)) * 100 / true.reshape(-1)
+    if take_mean:
+        err_perc = (np.mean(predicted, axis=0) -
+            true.reshape(-1)) * 100 / true.reshape(-1)
+    else:
+        err_perc = (predicted -
+            true.reshape(-1)) * 100 / true.reshape(-1)
     plot_path = os.path.join(configs.model_save_path, 'plots')
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
     ax.plot(
         np.arange(configs.pred_len),
         err_perc
@@ -161,6 +169,7 @@ def eval(model, validation_ds, metadata, configs, names,
 
 
 
+    plt.close('all')
     for i in range(len(forecasts_ls)):
         forecast = forecasts_ls[i]
         name = names[i].lower()
@@ -182,7 +191,10 @@ def eval(model, validation_ds, metadata, configs, names,
 
     # now do a similar calc for the combined forecasts
     # log these values - I have logged the error percentages - Aditya
+    plt.close('all')
     if configs.six_ramps:
+        target_ramp_caiso = series_ls[0] - series_ls[2] - series_ls[4] 
+        target_ramp_eia   = series_ls[1] - series_ls[3] - series_ls[5] 
         combined_forecast_samples, labels = combine_forecast_components(
             forecasts_ls,
             series_ls
@@ -193,37 +205,101 @@ def eval(model, validation_ds, metadata, configs, names,
             if "caiso" in cur_label:
                 cur_target = caiso_net_load_ramp
                 err_type = 'caiso_error_perc'
+                ramp_name = 'CAISO Ramp Prediction Mean' if 'mean' in cur_label else 'CAISO Ramp Prediction Median'
+                target_series = target_ramp_caiso
             else:
                 cur_target = eia_net_load_ramp
                 err_type = 'eia_error_perc'
+                ramp_name = 'EIA Ramp Prediction Mean' if 'mean' in cur_label else 'EIA Ramp Prediction Median'
+                target_series = target_ramp_eia
             agg_metrics[err_type] = error_percentage(predicted=cur_samples,
                                                     true=cur_target[-configs.pred_len:].reshape(-1),
                                                     err_type=err_type,
                                                     configs=configs)
+            #plot_final_ramps(cur_samples, target_series, ramp_name, configs)
             print(f"{cur_label} percent error: {agg_metrics[err_type]}")
+
+        caiso_ramp_forecast = forecasts_ls[0].samples - forecasts_ls[2].samples - forecasts_ls[4].samples
+        #plot_ts_bands(caiso_ramp_forecast,target_ramp_caiso, 'CAISO Total Ramp', configs)
+        eia_ramp_forecast = forecasts_ls[1].samples - forecasts_ls[3].samples - forecasts_ls[5].samples 
+        #plot_ts_bands(eia_ramp_forecast, target_ramp_eia, 'EIA Total Ramp', configs)
 
     print('\nTarget series forecast plots saved.')
     log_eval(configs, agg_metrics)
+    shutil.make_archive(os.path.join(configs.model_save_path,'plots'),'zip',base_dir=os.path.join(configs.model_save_path,'plots'))
     print('\nConfiguration and results logged.')
+
+def plot_ts_bands(forecast,target,title,configs):
+    print("Forecast ", forecast.shape)
+    print("Standard deviation ",np.std(forecast,axis=0))
+    print("Target ",target.columns)
+    plot_length = configs.pred_len + 24
+    plot_path = os.path.join(configs.model_save_path, 'plots')
+    prediction_intervals = (50.0, 90.0)
+    legend = ['observations', 'median prediction']
+    legend += [f'{k} prediction interval' for k in prediction_intervals][::-1]
+    sns.set(color_codes=True)
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
+    ax = sns.tsplot(data=forecast, ci=[50, 90], color="g")
+    #target[-plot_length:].plot(ax=ax)
+    ax.set_title(title)
+    plt.savefig(os.path.join(plot_path, title.replace(' ','_').lower() + ".png"))
+    np.save(os.path.join(plot_path ,title.replace(' ','').lower()+'forecast_.npz'),forecast)
+    print("Debug print ")
+    print(np.array(target[0]))
+    np.save(os.path.join(plot_path ,title.replace(' ','').lower()+'true_.npz'),np.array(target[0]))
+
+def plot_final_ramps(samples,series,names,configs):
+
+    print(samples)
+    print('**'*40)
+    plot_length = configs.pred_len * 2
+    plot_path = os.path.join(configs.model_save_path, 'plots')
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
+    series[-plot_length:].plot(ax=ax)  # plot the time series
+    predicted_df = pd.DataFrame({'a':samples})
+    predicted_df.index = series.index[-plot_length:]
+    predicted_df.plot(ax=ax)
+    #legend = (['True Ramp','Predicted Ramp'])
+    plt.grid(which="both")
+    #plt.legend(legend, loc="upper left")
+    ax.set_title(names)
+    ax.set_ylabel('Ramp (MWh)')
+    plt.savefig(os.path.join(plot_path, names + ".png"))
+
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
+    error_percentage = (samples - np.array(series[0][-plot_length:])) / np.array(series[0][-plot_length:])
+    print("Target", np.array(series[0][-plot_length:]))
+    print("Error Percentage ", error_percentage)
+    names += ' Error Percentage'
+    ax.plot(series.index[-plot_length:],error_percentage*100)
+    ax.set_title(names)
+    ax.set_ylabel('Ramp Error (%)')
+    plt.savefig(os.path.join(plot_path, names + ".png"))
 
 
 if __name__ == '__main__':
+    plt.close('all')
     mx.random.seed(1)
     configs = configparser.parse_args()
     ctx = mx.gpu() if configs.use_gpu else mx.cpu()
     sim_number = len(os.listdir('./saved_models'))
     if configs.run_eval_only:
-        if 'simulation_num_' + str(configs.simulation_num) not in os.listdir('./saved_models'):
+        #if 'simulation_num_' + str(configs.simulation_num) not in os.listdir('./saved_models'):
+        if configs.simulation_folder_name not in os.listdir('./saved_models'):
             raise ValueError('This simulation has not been trained')
         sim_number = configs.simulation_num
-    configs.model_save_path += f'/simulation_num_{sim_number}'
-    configs.model_save_path = Path(configs.model_save_path)
-    if not os.path.isdir(configs.model_save_path):
-        os.mkdir(configs.model_save_path)
+        configs.model_save_path +=  configs.simulation_folder_name
+        configs.model_save_path = Path(configs.model_save_path)
+    else:
+        configs.model_save_path += f'/simulation_num_{sim_number}'
+        configs.model_save_path = Path(configs.model_save_path)
+        if not os.path.isdir(configs.model_save_path):
+            os.mkdir(configs.model_save_path)
 
-    plot_path = os.path.join(configs.model_save_path, 'plots')
-    if not os.path.isdir(plot_path):
-        os.mkdir(plot_path)
+        plot_path = os.path.join(configs.model_save_path, 'plots')
+        if not os.path.isdir(plot_path):
+            os.mkdir(plot_path)
 
 
     loader = dssmDataloader(configs)

@@ -24,7 +24,6 @@ class dssmDataloader():
         """Extracts target and feature series from df."""
         print("Extarcatmog", self.configs.six_ramps)
         if self.configs.six_ramps:
-            print("Extracting 6 ramps")
             caiso_load_target = np.asarray(self.df['caiso_load_ramp'])
             caiso_solar_target = np.asarray(self.df['caiso_solar_ramp'])
             caiso_wind_target = np.asarray(self.df['caiso_wind_ramp'])
@@ -52,7 +51,7 @@ class dssmDataloader():
 
         else:
             targets = np.asarray(self.df['eia_ramp']).reshape(1, -1)
-            target_names = ['eia_ramp']
+            target_names = ['EIA_Total_Ramp']
             caiso_net_load_ramp, eia_net_load_ramp = None, None
 
         return targets, target_names, caiso_net_load_ramp, eia_net_load_ramp
