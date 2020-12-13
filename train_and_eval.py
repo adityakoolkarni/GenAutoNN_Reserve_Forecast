@@ -12,6 +12,7 @@ import numpy as np
 
 from pathlib import Path
 from utils.parser import configparser
+from utils.forecast import ForecastMe
 from data.dataloader import dssmDataloader
 from models.dssm import DeepStateSpaceModel
 from itertools import tee
@@ -40,7 +41,7 @@ def train(model, train_ds, metadata):
     print("*"*64)
 
 
-def plot_forecasts(forecast, agg_metrics, series, name, configs):
+def plot_forecasts(forecast, agg_metrics, series, name, configs, err_type):
     context_len, pred_len = configs.context_len, configs.pred_len
     plot_length =  pred_len +context_len
     prediction_intervals = (50.0, 90.0)
@@ -52,20 +53,20 @@ def plot_forecasts(forecast, agg_metrics, series, name, configs):
     # first plot
     fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
     series[-plot_length:].plot(ax=ax)  # plot the time series
-    forecast.plot(prediction_intervals=prediction_intervals, color='g')
+    forecast.plot(prediction_intervals=prediction_intervals, color='r')
     plt.grid(which="both")
     plt.legend(legend, loc="upper left")
     ax.set_title(name.replace('_', ' ').title())
     plt.savefig(os.path.join(plot_path, name + ".png"))
 
     # second plot
-    #fig, ax = plt.subplots(1, 1, figsize=(10, 7))
-    #ax.plot(
-    #    series.index[-configs.pred_len:],
-    #    agg_metrics[name + '_error_perc'] * 100
-    #    )
-    #ax.set_title(f"Percentage Error Plot for {name}")
-    #plt.savefig(os.path.join(plot_path, name + '_error_perc.png'))
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7))
+    ax.plot(
+        series.index[-configs.pred_len:],
+        agg_metrics[err_type] 
+        )
+    ax.set_title(f"Percentage Error Plot for {name}")
+    plt.savefig(os.path.join(plot_path, name + '_error_perc.png'))
 
 
 def log_eval(configs, agg_metrics):
@@ -85,64 +86,32 @@ def log_eval(configs, agg_metrics):
 
 
 def combine_forecast_components(forecasts_ls, series_ls):
-    caiso_net_load_ramp_mean = (
-        np.mean(forecasts_ls[0].samples, axis=0) -
-        np.mean(forecasts_ls[2].samples, axis=0) -
-        np.mean(forecasts_ls[4].samples, axis=0)
+    caiso_net_load_ramp = (
+        forecasts_ls[0].samples -
+        forecasts_ls[2].samples -
+        forecasts_ls[4].samples
         )
-    caiso_net_load_ramp_median = (
-        np.median(forecasts_ls[0].samples, axis=0) -
-        np.median(forecasts_ls[2].samples, axis=0) -
-        np.median(forecasts_ls[4].samples, axis=0)
-        )
-    eia_net_load_ramp_mean = (
-        np.mean(forecasts_ls[1].samples, axis=0) -
-        np.mean(forecasts_ls[3].samples, axis=0) -
-        np.mean(forecasts_ls[5].samples, axis=0)
-        )
-    eia_net_load_ramp_median = (
-        np.median(forecasts_ls[1].samples, axis=0) -
-        np.median(forecasts_ls[3].samples, axis=0) -
-        np.median(forecasts_ls[5].samples, axis=0)
+    eia_net_load_ramp = (
+        forecasts_ls[1].samples -
+        forecasts_ls[3].samples -
+        forecasts_ls[5].samples
         )
 
-    combined_forecast_samples = [
-        caiso_net_load_ramp_mean,
-        caiso_net_load_ramp_median,
-        eia_net_load_ramp_mean,
-        eia_net_load_ramp_median
-        ]
-    labels = [
-        "caiso_net_load_ramp_mean",
-        "caiso_net_load_ramp_median",
-        "eia_net_load_ramp_mean",
-        "eia_net_load_ramp_median"
-        ]
+    combined_forecast_samples = { 
+            "caiso_net_load_ramp_from_component_ramps": caiso_net_load_ramp,
+            "eia_net_load_ramp_from_component_ramps": eia_net_load_ramp
+            }
 
-    return combined_forecast_samples, labels
+    return combined_forecast_samples
 
-def error_percentage(predicted,true,err_type,configs,take_mean=True):
+def error_percentage(predicted,true):
     '''
     Computes error percentage and plots the same 
+    params:
+        predicted - num_prediction_paths x prediction_len
+        true - 1 x prediction_len
     '''
-    if take_mean:
-        err_perc = (np.mean(predicted, axis=0) -
-            true.reshape(-1)) * 100 / true.reshape(-1)
-    else:
-        err_perc = (predicted -
-            true.reshape(-1)) * 100 / true.reshape(-1)
-    plot_path = os.path.join(configs.model_save_path, 'plots')
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
-    ax.plot(
-        np.arange(configs.pred_len),
-        err_perc
-        )
-    plot_name = err_type.split('_')[0].upper() + '_ramp' #CAISO / EIA
-    ax.set_title(f"Percentage Error Plot for {plot_name}")
-    ax.set_xlabel('Prediction at every Hour')
-    ax.set_ylabel('Percentage Error')
-    plt.savefig(os.path.join(plot_path, plot_name + '_error_perc.png'))
-
+    err_perc = (np.mean(predicted,axis=0) - true.reshape(-1)) * 100 / true.reshape(-1)
     return err_perc 
 
 def eval(model, validation_ds, metadata, configs, names,
@@ -167,9 +136,6 @@ def eval(model, validation_ds, metadata, configs, names,
         num_series=len(validation_ds)
         )
 
-
-
-    plt.close('all')
     for i in range(len(forecasts_ls)):
         forecast = forecasts_ls[i]
         name = names[i].lower()
@@ -184,10 +150,8 @@ def eval(model, validation_ds, metadata, configs, names,
         series = series_ls[i]
         err_type = name + '_error_perc'
         agg_metrics[err_type] = error_percentage(predicted=forecast.samples,
-                                                            true=series[-configs.pred_len:].to_numpy(),
-                                                            err_type=err_type,
-                                                            configs=configs)
-        plot_forecasts(forecast, agg_metrics, series, name, configs)
+                                                            true=series[-configs.pred_len:].to_numpy())
+        plot_forecasts(forecast, agg_metrics, series, name, configs, err_type)
 
     # now do a similar calc for the combined forecasts
     # log these values - I have logged the error percentages - Aditya
@@ -195,13 +159,12 @@ def eval(model, validation_ds, metadata, configs, names,
     if configs.six_ramps:
         target_ramp_caiso = series_ls[0] - series_ls[2] - series_ls[4] 
         target_ramp_eia   = series_ls[1] - series_ls[3] - series_ls[5] 
-        combined_forecast_samples, labels = combine_forecast_components(
+        combined_forecast_samples = combine_forecast_components(
             forecasts_ls,
             series_ls
             )
-        for i in range(len(combined_forecast_samples)):
-            cur_samples = combined_forecast_samples[i]
-            cur_label = labels[i]
+
+        for cur_label,cur_samples in combined_forecast_samples.items():
             if "caiso" in cur_label:
                 cur_target = caiso_net_load_ramp
                 err_type = 'caiso_error_perc'
@@ -213,69 +176,18 @@ def eval(model, validation_ds, metadata, configs, names,
                 ramp_name = 'EIA Ramp Prediction Mean' if 'mean' in cur_label else 'EIA Ramp Prediction Median'
                 target_series = target_ramp_eia
             agg_metrics[err_type] = error_percentage(predicted=cur_samples,
-                                                    true=cur_target[-configs.pred_len:].reshape(-1),
-                                                    err_type=err_type,
-                                                    configs=configs)
+                                                    true=cur_target[-configs.pred_len:].reshape(-1))
+
+            #samples: np.ndarray, start_date: pd.Timestamp, freq: 'H'):
+            final_forecasts = ForecastMe(samples=cur_samples,start_date=forecast.start_date,freq='H') 
+            plot_forecasts(final_forecasts, agg_metrics, series, cur_label, configs, err_type)
             #plot_final_ramps(cur_samples, target_series, ramp_name, configs)
             print(f"{cur_label} percent error: {agg_metrics[err_type]}")
-
-        caiso_ramp_forecast = forecasts_ls[0].samples - forecasts_ls[2].samples - forecasts_ls[4].samples
-        #plot_ts_bands(caiso_ramp_forecast,target_ramp_caiso, 'CAISO Total Ramp', configs)
-        eia_ramp_forecast = forecasts_ls[1].samples - forecasts_ls[3].samples - forecasts_ls[5].samples 
-        #plot_ts_bands(eia_ramp_forecast, target_ramp_eia, 'EIA Total Ramp', configs)
 
     print('\nTarget series forecast plots saved.')
     log_eval(configs, agg_metrics)
     shutil.make_archive(os.path.join(configs.model_save_path,'plots'),'zip',base_dir=os.path.join(configs.model_save_path,'plots'))
     print('\nConfiguration and results logged.')
-
-def plot_ts_bands(forecast,target,title,configs):
-    print("Forecast ", forecast.shape)
-    print("Standard deviation ",np.std(forecast,axis=0))
-    print("Target ",target.columns)
-    plot_length = configs.pred_len + 24
-    plot_path = os.path.join(configs.model_save_path, 'plots')
-    prediction_intervals = (50.0, 90.0)
-    legend = ['observations', 'median prediction']
-    legend += [f'{k} prediction interval' for k in prediction_intervals][::-1]
-    sns.set(color_codes=True)
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
-    ax = sns.tsplot(data=forecast, ci=[50, 90], color="g")
-    #target[-plot_length:].plot(ax=ax)
-    ax.set_title(title)
-    plt.savefig(os.path.join(plot_path, title.replace(' ','_').lower() + ".png"))
-    np.save(os.path.join(plot_path ,title.replace(' ','').lower()+'forecast_.npz'),forecast)
-    print("Debug print ")
-    print(np.array(target[0]))
-    np.save(os.path.join(plot_path ,title.replace(' ','').lower()+'true_.npz'),np.array(target[0]))
-
-def plot_final_ramps(samples,series,names,configs):
-
-    print(samples)
-    print('**'*40)
-    plot_length = configs.pred_len * 2
-    plot_path = os.path.join(configs.model_save_path, 'plots')
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
-    series[-plot_length:].plot(ax=ax)  # plot the time series
-    predicted_df = pd.DataFrame({'a':samples})
-    predicted_df.index = series.index[-plot_length:]
-    predicted_df.plot(ax=ax)
-    #legend = (['True Ramp','Predicted Ramp'])
-    plt.grid(which="both")
-    #plt.legend(legend, loc="upper left")
-    ax.set_title(names)
-    ax.set_ylabel('Ramp (MWh)')
-    plt.savefig(os.path.join(plot_path, names + ".png"))
-
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
-    error_percentage = (samples - np.array(series[0][-plot_length:])) / np.array(series[0][-plot_length:])
-    print("Target", np.array(series[0][-plot_length:]))
-    print("Error Percentage ", error_percentage)
-    names += ' Error Percentage'
-    ax.plot(series.index[-plot_length:],error_percentage*100)
-    ax.set_title(names)
-    ax.set_ylabel('Ramp Error (%)')
-    plt.savefig(os.path.join(plot_path, names + ".png"))
 
 
 if __name__ == '__main__':
