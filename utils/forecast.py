@@ -1,4 +1,4 @@
-from glounts.models.forecast import SampleForecast
+from gluonts.model.forecast import SampleForecast
 
 class ForecastMe(SampleForecast):
     def __init__(self, **kwargs):
