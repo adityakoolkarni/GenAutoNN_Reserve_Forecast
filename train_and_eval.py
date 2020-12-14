@@ -19,6 +19,7 @@ from itertools import tee
 import shutil
 import matplotlib.pyplot as plt
 import seaborn as sns
+from gluonts.model.forecast import SampleForecast
 
 
 def train(model, train_ds, metadata):
@@ -41,22 +42,37 @@ def train(model, train_ds, metadata):
     print("*"*64)
 
 
-def plot_forecasts(forecast, agg_metrics, series, name, configs, err_type):
+def plot_forecasts(forecast, agg_metrics, series, name, configs, err_type,shift=True):
+    plt.rcParams.update({'font.size': 14})
     context_len, pred_len = configs.context_len, configs.pred_len
-    plot_length =  pred_len +context_len
+    plot_length =  pred_len*2# + context_len
     prediction_intervals = (50.0, 90.0)
     legend = ['observations', 'median prediction']
+    #legend = ['observations']
     legend += [f'{k} prediction interval' for k in prediction_intervals][::-1]
+    #legend += ['median prediction']
 
     plot_path = os.path.join(configs.model_save_path, 'plots')
 
     # first plot
-    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=200)
+    if shift:
+        series.index = series.index - pd.Timedelta(value=8,unit='H')
+    fig, ax = plt.subplots(1, 1, figsize=(10, 7),dpi=100)
     series[-plot_length:].plot(ax=ax)  # plot the time series
-    forecast.plot(prediction_intervals=prediction_intervals, color='r')
+    forecast_df = pd.DataFrame({'data':np.hstack((np.nan*np.ones(plot_length//2),
+                                                    np.median(forecast.samples,axis=0)))},
+                                index=pd.date_range(start=series.index[-plot_length],periods=plot_length,freq='H')
+                                )
+
+    #ax.plot(series.index[-plot_length:],series.index[-plot_length:],color='b')
+    forecast.plot(prediction_intervals=prediction_intervals, color='g')
+    #forecast_df.plot(ax=ax,color='black',marker='*')
     plt.grid(which="both")
     plt.legend(legend, loc="upper left")
+    #ax.vlines(series.index[plot_length//2],ymin=np.min(forecast.samples),ymax=np.max(forecast.samples),
+    #            linestyles='dotted',color='r')
     ax.set_title(name.replace('_', ' ').title())
+    ax.set_ylabel('Ramp (MWH)')
     plt.savefig(os.path.join(plot_path, name + ".png"))
 
     # second plot
@@ -65,7 +81,11 @@ def plot_forecasts(forecast, agg_metrics, series, name, configs, err_type):
         series.index[-configs.pred_len:],
         agg_metrics[err_type] 
         )
-    ax.set_title(f"Percentage Error Plot for {name}")
+    ax.set_title(f"Percentage Error Plot for {name.replace('_',' ').title().split()[:2]}")
+    ax.set_ylabel("Percentage Error")
+    ax.set_xlabel("Time")
+    plt.grid(which='both')
+
     plt.savefig(os.path.join(plot_path, name + '_error_perc.png'))
 
 
@@ -98,8 +118,8 @@ def combine_forecast_components(forecasts_ls, series_ls):
         )
 
     combined_forecast_samples = { 
-            "caiso_net_load_ramp_from_component_ramps": caiso_net_load_ramp,
-            "eia_net_load_ramp_from_component_ramps": eia_net_load_ramp
+            "caiso_net_load_ramp_multiple_target_ramps": caiso_net_load_ramp,
+            "eia_net_load_ramp_multiple_target_ramps": eia_net_load_ramp
             }
 
     return combined_forecast_samples
@@ -111,8 +131,9 @@ def error_percentage(predicted,true):
         predicted - num_prediction_paths x prediction_len
         true - 1 x prediction_len
     '''
-    err_perc = (np.mean(predicted,axis=0) - true.reshape(-1)) * 100 / true.reshape(-1)
-    return err_perc 
+    err_perc = (np.median(predicted,axis=0) - true.reshape(-1)) * 100 / true.reshape(-1)# np.mean(predicted,axis=0)
+    return err_perc
+    return np.mean(np.abs(err_perc))
 
 def eval(model, validation_ds, metadata, configs, names,
          caiso_net_load_ramp=None, eia_net_load_ramp=None):
@@ -151,7 +172,11 @@ def eval(model, validation_ds, metadata, configs, names,
         err_type = name + '_error_perc'
         agg_metrics[err_type] = error_percentage(predicted=forecast.samples,
                                                             true=series[-configs.pred_len:].to_numpy())
-        plot_forecasts(forecast, agg_metrics, series, name, configs, err_type)
+        final_forecasts = ForecastMe(samples=forecast.samples,start_date=forecast.start_date - pd.Timedelta(value=8,unit='H')
+                                        ,freq='H') 
+        #final_forecasts = ForecastMe(samples=forecast.samples,start_date=forecast.start_date
+        #                                ,freq='H') 
+        plot_forecasts(final_forecasts, agg_metrics, series, name, configs, err_type)
 
     # now do a similar calc for the combined forecasts
     # log these values - I have logged the error percentages - Aditya
@@ -179,8 +204,11 @@ def eval(model, validation_ds, metadata, configs, names,
                                                     true=cur_target[-configs.pred_len:].reshape(-1))
 
             #samples: np.ndarray, start_date: pd.Timestamp, freq: 'H'):
-            final_forecasts = ForecastMe(samples=cur_samples,start_date=forecast.start_date,freq='H') 
-            plot_forecasts(final_forecasts, agg_metrics, series, cur_label, configs, err_type)
+            final_forecasts = ForecastMe(samples=cur_samples,start_date = forecast.start_date - pd.Timedelta(value=8,unit='H')                                          ,freq='H') 
+            #final_forecasts = ForecastMe(samples=cur_samples,start_date = forecast.start_date  ,freq='H') 
+
+            #final_forecasts = SampleForecast(samples=cur_samples,start_date=forecast.start_date,freq='H') 
+            plot_forecasts(final_forecasts, agg_metrics, target_series, cur_label, configs, err_type,shift=False)
             #plot_final_ramps(cur_samples, target_series, ramp_name, configs)
             print(f"{cur_label} percent error: {agg_metrics[err_type]}")
 

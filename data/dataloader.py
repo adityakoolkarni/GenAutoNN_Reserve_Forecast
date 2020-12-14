@@ -51,7 +51,7 @@ class dssmDataloader():
 
         else:
             targets = np.asarray(self.df['eia_ramp']).reshape(1, -1)
-            target_names = ['EIA_Total_Ramp']
+            target_names = ['EIA_Net_Load_Ramp_Single_Target']
             caiso_net_load_ramp, eia_net_load_ramp = None, None
 
         return targets, target_names, caiso_net_load_ramp, eia_net_load_ramp
