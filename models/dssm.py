@@ -27,6 +27,7 @@ class DeepStateSpaceModel:
                         epochs=self.configs.num_epochs,
                         learning_rate=self.configs.learning_rate,
                         hybridize=False,
+                        patience=5,
                         num_batches_per_epoch = self.configs.train_len // self.configs.batch_size,
                         batch_size=self.configs.batch_size
                        )

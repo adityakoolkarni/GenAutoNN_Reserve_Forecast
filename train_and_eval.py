@@ -22,7 +22,7 @@ import seaborn as sns
 from gluonts.model.forecast import SampleForecast
 
 
-def train(model, train_ds, metadata):
+def train(model, train_ds, metadata, val_ds):
     """
     Get a probabilistic estimator, train this to produce a predictor, and then
     save the predictor.
@@ -31,7 +31,8 @@ def train(model, train_ds, metadata):
 
     tic = time.time()
     predictor = estimator.train(
-        training_data=train_ds
+        training_data=train_ds,
+        validation_data=val_ds
         )
 
     print("*"*64)
@@ -263,6 +264,7 @@ if __name__ == '__main__':
     train_ds_full = full_datasets[0]
     train_metadata = metadatas[0]
     validation_ds = full_datasets[1]
+    validation_ds = clipped_datasets[0]
     validation_metadata = metadatas[1]
     test_ds = full_datasets[2]
     test_metadata = metadatas[2]
@@ -301,7 +303,7 @@ if __name__ == '__main__':
         print('*-'*40)
         print('*-'*40)
         print("Running training")
-        train(model, train_ds, train_metadata)
+        train(model, train_ds, train_metadata,validation_ds)
         print('*-'*40)
 
         print("Running evaluation only")
